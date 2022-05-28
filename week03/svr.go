@@ -52,7 +52,7 @@ func (app *App) Run() error {
 		egroup.Go(func() error {
 			<-ctx.Done()
 			log.Println("Server Recv Done Signal")
-			stopCtx, cancel := context.WithTimeout(app.opts.ctx, app.opts.stopTimeout)
+			stopCtx, cancel := context.WithTimeout(context.Background(), app.opts.stopTimeout)
 			defer cancel()
 			return svr.Stop(stopCtx)
 		})
