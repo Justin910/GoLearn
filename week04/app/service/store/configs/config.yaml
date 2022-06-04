@@ -1,0 +1,12 @@
+server:
+  grpc:
+    addr: 0.0.0.0:8080
+    timeout: 1 # utils: s
+
+data:
+  database:
+    driver: mysql
+    source: root:123@tcp(127.0.0.1:3306)/store
+    maxopenconns: 256
+    connmaxlifetime: 5 # utils: s
+
