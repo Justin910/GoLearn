@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package store.service.v1;
+
+option go_package = "api/store/service/v1;v1";
+
+//import "google/protobuf/descriptor.proto";
+
+service Store {
+  rpc CreateGoods(CreateGoodsReq) returns (CreateGoodsRsp);
+  rpc IncGoodsNum(IncGoodsNumReq) returns (IncGoodsNumRsp);
+  rpc ListGoods(ListGoodsReq) returns (ListGoodsRsp);
+  rpc DecGoodsNum(DecGoodsNumReq) returns (DecGoodsNumRsp);
+}
+
+message CreateGoodsReq {
+  string goods_name = 1;
+  string goods_detail= 2;
+}
+
+message CreateGoodsRsp {
+  int64 goods_id = 1;
+}
+
+message IncGoodsNumReq {
+  int64 goods_id = 1;
+  int64 goods_num = 2;
+}
+
+message IncGoodsNumRsp {
+
+}
+
+message DecGoodsNumReq {
+  int64 goods_id = 1;
+  int64 goods_num = 2;
+}
+
+message DecGoodsNumRsp {
+}
+
+message ListGoodsReq {
+  int64 page_no = 1;
+  int64 page_size = 2;
+}
+
+message ListGoodsRsp {
+  message Goods {
+    int64 goods_id = 1;
+    int64 goods_num = 2;
+    string goods_name = 3;
+    string goods_detail = 4;
+  }
+  repeated Goods goods = 1;
+}
