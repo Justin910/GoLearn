@@ -3,7 +3,7 @@ package service
 import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/wire"
-	"week04/app/service/store/internal/biz"
+	"store/service/internal/biz"
 
 	v1 "week04/api/store/service/v1"
 )

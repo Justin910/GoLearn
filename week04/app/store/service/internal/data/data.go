@@ -5,7 +5,7 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/google/wire"
-	"week04/app/service/store/internal/conf"
+	"store/service/internal/conf"
 )
 
 // ProviderSet is data providers.

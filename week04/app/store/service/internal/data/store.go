@@ -3,7 +3,7 @@ package data
 import (
 	"context"
 	"github.com/go-kratos/kratos/v2/log"
-	"week04/app/service/store/internal/biz"
+	"store/service/internal/biz"
 )
 
 var _ biz.StoreRepo = (*storeRepo)(nil)

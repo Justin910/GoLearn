@@ -5,9 +5,9 @@ import (
 	"github.com/go-kratos/kratos/v2/middleware/logging"
 	"github.com/go-kratos/kratos/v2/middleware/recovery"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
-	v1 "week04/api/store/service/v1"
-	"week04/app/service/store/internal/conf"
-	"week04/app/service/store/internal/service"
+	"store/service/internal/conf"
+	"store/service/internal/service"
+	"week04/api/store/service/v1"
 )
 
 func NewGRPCServer(c *conf.Server, logger log.Logger, s *service.Store) *grpc.Server {

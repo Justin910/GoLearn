@@ -9,16 +9,15 @@ package main
 import (
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
-	"week04/app/service/store/internal/biz"
-	"week04/app/service/store/internal/conf"
-	"week04/app/service/store/internal/data"
-	"week04/app/service/store/internal/server"
-	"week04/app/service/store/internal/service"
+	"store/service/internal/biz"
+	"store/service/internal/conf"
+	"store/service/internal/data"
+	"store/service/internal/server"
+	"store/service/internal/service"
 )
 
 // Injectors from wire.go:
 
-// initApp init kratos application.
 func initApp(confServer *conf.Server, registry *conf.Registry, confData *conf.Data, logger log.Logger) (*kratos.App, func(), error) {
 	db := data.ConnectDB(confData, logger)
 	dataData, cleanup, err := data.NewData(confData, db, logger)

@@ -10,7 +10,7 @@ import (
 	"github.com/go-kratos/kratos/v2/registry"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 	"os"
-	conf "week04/app/service/store/internal/conf"
+	conf "store/service/internal/conf"
 )
 
 // go build -ldflags "-X main.Version=x.y.z"

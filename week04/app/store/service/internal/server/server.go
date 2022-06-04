@@ -8,8 +8,8 @@ import (
 	"github.com/google/wire"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"io/ioutil"
+	"store/service/internal/conf"
 	"time"
-	"week04/app/service/store/internal/conf"
 )
 
 var ProviderSet = wire.NewSet(NewRegistrar, NewGRPCServer)

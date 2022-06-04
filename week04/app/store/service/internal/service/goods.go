@@ -2,8 +2,8 @@ package service
 
 import (
 	"context"
+	"store/service/internal/biz"
 	v1 "week04/api/store/service/v1"
-	"week04/app/service/store/internal/biz"
 )
 
 func (s *Store) CreateGoods(ctx context.Context, req *v1.CreateGoodsReq) (*v1.CreateGoodsRsp, error) {
