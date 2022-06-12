@@ -14,6 +14,8 @@ const (
 
 	// DefaultWindowSize : 滑动窗口大小
 	DefaultWindowSize = 10
+
+	DefaultErrPerceng = 0.2
 )
 
 // BucketCounterStream
@@ -34,16 +36,13 @@ type SlideWindow struct {
 	offset  int32                 //桶偏移
 	buckets []BucketCounterStream //桶数组
 
-	ch          chan struTask
 	statCounter BucketCounterStream
 
 	isStopCounter int32
 
 	closeOnce sync.Once
 
-	sendWg sync.WaitGroup
-
-	mux sync.Mutex // calc lock
+	mux sync.RWMutex // calc lock
 }
 
 func InitSlideWindowCounter(opts ...Option) (*SlideWindow, error) {
@@ -51,6 +50,7 @@ func InitSlideWindowCounter(opts ...Option) (*SlideWindow, error) {
 	o := options{
 		bucketWidth: DefaultBucketWidth,
 		windowSize:  DefaultWindowSize,
+		errPercent:  DefaultErrPerceng,
 	}
 
 	for _, opt := range opts {
@@ -69,12 +69,15 @@ func InitSlideWindowCounter(opts ...Option) (*SlideWindow, error) {
 		return nil, errors.New("The window size is too large ")
 	}
 
+	if o.errPercent < 0.0 || o.errPercent > 1.0 {
+		return nil, errors.New("The err percent param invalid ")
+	}
+
 	rollw := new(SlideWindow)
 	rollw.offset = 0
 	rollw.buckets = make([]BucketCounterStream, o.windowSize)
 	rollw.opts = o
 
-	rollw.ch = make(chan struTask, 1000)
 	rollw.ctx, rollw.cancel = context.WithCancel(context.Background())
 
 	go rollw.start()
@@ -95,15 +98,41 @@ func (r *SlideWindow) IncRejection(n int32) {
 }
 
 func (r *SlideWindow) GetCurrentCounter() BucketCounterStream {
-	return r.statCounter
+	r.mux.RLock()
+	defer r.mux.RUnlock()
+
+	counter := BucketCounterStream{
+		Success:   atomic.LoadInt32(&r.statCounter.Success) + atomic.LoadInt32(&r.buckets[r.offset].Success),
+		Failure:   atomic.LoadInt32(&r.statCounter.Failure) + atomic.LoadInt32(&r.buckets[r.offset].Failure),
+		Timeout:   atomic.LoadInt32(&r.statCounter.Timeout) + atomic.LoadInt32(&r.buckets[r.offset].Timeout),
+		Rejection: atomic.LoadInt32(&r.statCounter.Rejection) + atomic.LoadInt32(&r.buckets[r.offset].Rejection),
+	}
+
+	return counter
+}
+
+func (r *SlideWindow) IsHealthy() bool {
+	cc := r.GetCurrentCounter()
+	ep := cc.GetErrPercent()
+	return ep < r.opts.errPercent
+}
+
+func (bcs BucketCounterStream) Sum() int32 {
+	return atomic.LoadInt32(&bcs.Success) + atomic.LoadInt32(&bcs.Failure) + atomic.LoadInt32(&bcs.Timeout) + atomic.LoadInt32(&bcs.Rejection)
+}
+
+func (bcs BucketCounterStream) GetErrPercent() float64 {
+	sum := bcs.Sum()
+	if sum == 0 {
+		return 0
+	}
+	return 1 - float64(atomic.LoadInt32(&bcs.Success))/float64(sum)
 }
 
 func (r *SlideWindow) Stop() {
 	r.closeOnce.Do(func() {
 		atomic.StoreInt32(&r.isStopCounter, 1)
 		r.cancel()
-		r.sendWg.Wait()
-		close(r.ch)
 	})
 }
 
@@ -111,10 +140,11 @@ func (r *SlideWindow) Calc() {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
-	// 计算窗口内的数据
-	r.calc()
 	// 调整偏移
 	r.adjustOffset()
+
+	// 计算窗口内的数据
+	r.calc()
 }
 
 type counterType int
@@ -138,24 +168,20 @@ func (r *SlideWindow) inc(ct counterType, n int32) {
 		return
 	}
 
-	r.sendWg.Add(1)
-	defer r.sendWg.Done()
+	r.mux.RLock()
+	defer r.mux.RUnlock()
 
-	// 避免在刚判断完是否stop后，还没走到Add方法时，Stop函数就已经调用.Wait()了
-	if atomic.LoadInt32(&r.isStopCounter) == 1 {
-		return
+	switch ct {
+	case counterType_Success:
+		atomic.AddInt32(&r.buckets[r.offset].Success, n)
+	case counterType_Failure:
+		atomic.AddInt32(&r.buckets[r.offset].Failure, n)
+	case counterType_Timeout:
+		atomic.AddInt32(&r.buckets[r.offset].Timeout, n)
+	case counterType_Rejection:
+		atomic.AddInt32(&r.buckets[r.offset].Rejection, n)
 	}
-
-	t := struTask{
-		ct: ct,
-		n:  n,
-	}
-
-	select {
-	case <-r.ctx.Done():
-	case r.ch <- t:
-	default:
-	}
+	return
 }
 
 func (r *SlideWindow) start() {
@@ -167,19 +193,6 @@ func (r *SlideWindow) start() {
 		case <-r.ctx.Done():
 			goto skipLoop
 
-		case t := <-r.ch:
-			// 单goroutine处理，不需要用原子锁
-			switch t.ct {
-			case counterType_Success:
-				r.buckets[r.offset].Success += t.n
-			case counterType_Failure:
-				r.buckets[r.offset].Failure += t.n
-			case counterType_Timeout:
-				r.buckets[r.offset].Timeout += t.n
-			case counterType_Rejection:
-				r.buckets[r.offset].Rejection += t.n
-			}
-
 		case <-timer.C:
 			r.Calc()
 		}
@@ -187,20 +200,20 @@ func (r *SlideWindow) start() {
 skipLoop:
 
 	timer.Stop()
-
-	for range r.ch {
-		// Discard Message
-	}
 }
 
 func (r *SlideWindow) calc() {
 	statCounter := BucketCounterStream{}
 
 	for i := range r.buckets {
-		statCounter.Failure += r.buckets[i].Failure
-		statCounter.Success += r.buckets[i].Success
-		statCounter.Timeout += r.buckets[i].Timeout
-		statCounter.Rejection += r.buckets[i].Rejection
+		if int32(i) == r.offset {
+			// 当前偏移窗口实时计算
+			continue
+		}
+		atomic.AddInt32(&statCounter.Success, atomic.LoadInt32(&r.buckets[i].Success))
+		atomic.AddInt32(&statCounter.Failure, atomic.LoadInt32(&r.buckets[i].Failure))
+		atomic.AddInt32(&statCounter.Timeout, atomic.LoadInt32(&r.buckets[i].Timeout))
+		atomic.AddInt32(&statCounter.Rejection, atomic.LoadInt32(&r.buckets[i].Rejection))
 	}
 	r.statCounter = statCounter
 }

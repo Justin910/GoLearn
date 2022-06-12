@@ -34,6 +34,8 @@ func main() {
 			}
 			r.IncSuccess(1)
 			r.IncFailure(2)
+			r.IncTimeout(3)
+			r.IncRejection(4)
 		}
 	}()
 
@@ -43,7 +45,9 @@ func main() {
 		if num == 5 {
 			break
 		}
-		fmt.Println(r.GetCurrentCounter())
+		cc := r.GetCurrentCounter()
+		fmt.Println(cc)
+		fmt.Println(cc.GetErrPercent())
 		time.Sleep(time.Second)
 	}
 

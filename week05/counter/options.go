@@ -8,6 +8,8 @@ type Option func(o *options)
 type options struct {
 	bucketWidth time.Duration
 	windowSize  int32
+
+	errPercent float64
 }
 
 // WithBucketWidth
@@ -23,5 +25,13 @@ func WithBucketWidth(w time.Duration) Option {
 func WithWindowSize(size int32) Option {
 	return func(o *options) {
 		o.windowSize = size
+	}
+}
+
+// WithErrPercent
+// 取值访问 0.0~1.0
+func WithErrPercent(p float64) Option {
+	return func(o *options) {
+		o.errPercent = p
 	}
 }
